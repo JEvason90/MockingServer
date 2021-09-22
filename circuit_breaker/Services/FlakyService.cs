@@ -1,19 +1,34 @@
 using System.Net.Http;
+using System.Threading;
+using Polly.CircuitBreaker;
 
 namespace CircuitBreaker.Services
 {
     public class FlakyService : IFlakyService
     {
-        private readonly HttpClient _client;
+        private readonly IHttpClientFactory _httpClientFactory;
 
-        public FlakyService(HttpClient client)
+        public FlakyService(IHttpClientFactory httpClientFactory)
         {
-            _client = client;
+            _httpClientFactory = httpClientFactory;
         }
+
 
         public HttpResponseMessage GetMessage()
         {
-            return _client.GetAsync("http://localhost:8080").Result;
+            var httpMessage = new HttpResponseMessage();
+
+            try{
+                var httpClient = _httpClientFactory.CreateClient("FlakyService");
+                httpMessage = httpClient.GetAsync("/").Result;
+            }
+            catch(BrokenCircuitException e)
+            {
+                Thread.Sleep(3500);
+            }
+
+            return httpMessage;
+
         }
     }
 }
